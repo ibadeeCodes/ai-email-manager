@@ -9,13 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Mail, Search, User, BarChart, Inbox, Send, Star, Trash } from 'lucide-react'
 
 export default function SignUpPage() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
+    // const [email, setEmail] = useState('')
+    // const [password, setPassword] = useState('')
 
-    const handleSignUp = (e: React.FormEvent) => {
-        e.preventDefault()
-        // Handle sign up logic here
-    }
+    // const handleSignUp = (e: React.FormEvent) => {
+    //     e.preventDefault()
+    //     // Handle sign up logic here
+    // }
 
     return (
         <div className="flex h-screen bg-gray-100">
@@ -102,7 +102,7 @@ export default function SignUpPage() {
                             <span className="text-gray-600">Sign up with</span>
                             <div className="flex justify-center mt-2 space-x-2">
                                 <Button
-                                    onClick={() => signIn('google')}
+                                    onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
                                     variant="outline"
                                     size="icon"
                                 >
