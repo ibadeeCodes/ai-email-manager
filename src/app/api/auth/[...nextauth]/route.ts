@@ -1,14 +1,10 @@
-// src/api/auth/[...nextauth]/route.ts
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { AuthOptions } from 'next-auth';
-
-// Extend Session type to include accessToken
 interface ExtendedSession {
   accessToken?: string;
 }
 
-// Your auth options configuration
 export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
@@ -16,7 +12,7 @@ export const authOptions: AuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       authorization: {
         params: {
-          scope: 'openid profile email https://www.googleapis.com/auth/gmail.readonly',
+          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send'
         },
       },
     }),
@@ -29,7 +25,6 @@ export const authOptions: AuthOptions = {
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;
-        // Ensure id_token is included if necessary
         token.idToken = account.id_token;
       }
       return token;
@@ -37,6 +32,5 @@ export const authOptions: AuthOptions = {
   },
 };
 
-// Create handlers for GET and POST requests
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

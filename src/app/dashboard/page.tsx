@@ -4,14 +4,20 @@ import { useEffect, useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import type { Session } from 'next-auth'
 import axios from 'axios'
-import { Search, Inbox, Send, Star, Trash, Menu, Plus, ChevronDown, ChevronRight, X, User, Settings, LogOut, Loader2 } from 'lucide-react'
+import { Search, Inbox, Send, Star, Trash, Menu, Plus, ChevronDown, ChevronRight, X, User, Settings, LogOut, Loader2, MoreVertical, Sparkles, Reply, Eye } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 interface CustomSession extends Session {
     accessToken?: string
@@ -32,6 +38,18 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
+    const [summary, setSummary] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+
+    const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+    const [aiReply, setAiReply] = useState('');
+    const [isReplyLoading, setIsReplyLoading] = useState(false);
+
+
+    const [isSendLoading, setIsSendLoading] = useState(false);
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
@@ -42,6 +60,107 @@ export default function Dashboard() {
         { icon: Star, label: 'Starred' },
         { icon: Trash, label: 'Trash' },
     ]
+
+    const handleSummarize = async (email: Email) => {
+        setSelectedEmail(email);
+        setIsModalOpen(true);
+        setIsLoading(true);
+
+        try {
+            if (session?.accessToken) {
+                // Construct the payload for the request
+                const response = await axios.post('/api/emails/summarize',
+                    {
+                        emailId: email.id
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session.accessToken}`
+                        },
+                    }
+                );
+
+                const data = await response.data;
+                setSummary(data.summary);
+            }
+        } catch (error) {
+            console.error('Error summarizing email:', error);
+            setSummary('Failed to generate summary. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGenerateReply = async (email: any) => {
+        setSelectedEmail(email);
+        setIsReplyModalOpen(true);
+        setIsReplyLoading(true);
+        try {
+            if (session?.accessToken) {
+                const response = await axios.post('/api/emails/reply',
+                    { emailId: email.id },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session.accessToken}`
+                        }
+                    }
+                );
+                setAiReply(response.data.reply);
+            }
+        } catch (error) {
+            console.error('Error generating reply:', error);
+            setAiReply('Failed to generate reply. Please try again.');
+        } finally {
+            setIsReplyLoading(false);
+        }
+    };
+
+    const handleSendReply = async (email: any) => {
+        // setSelectedEmail(email);
+        setIsSendLoading(true);
+        try {
+            if (session?.accessToken) {
+                const response = await axios.post('/api/emails',
+                    {
+                        emailId: selectedEmail?.id,
+                        replyBody: aiReply
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session.accessToken}`
+                        }
+                    }
+                );
+                setAiReply('');
+            }
+        } catch (error) {
+            console.error('Error sending reply:', error);
+            setAiReply('Failed to send reply. Please try again.');
+        } finally {
+            setIsSendLoading(false);
+            handleCloseSendModal()
+        }
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedEmail(null);
+        setAiReply('');
+    };
+
+    const handleCloseSendModal = () => {
+        setIsReplyModalOpen(false);
+        setSelectedEmail(null);
+        setAiReply('');
+    };
+
+    const handleReplyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setAiReply(event.target.value)
+    }
+
 
     useEffect(() => {
         async function loadEmails() {
@@ -167,24 +286,120 @@ export default function Dashboard() {
                 </header>
 
                 {/* Email list */}
-                <ScrollArea className="flex-1">
-                    <div className="p-4 space-y-2">
+                <ScrollArea className="flex-1 px-4">
+                    <div className="space-y-2 py-2">
                         {emails.map((email) => (
                             <div
                                 key={email.id}
-                                className={`bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200 ease-in-out cursor-pointer ${!email.isRead ? 'border-l-4 border-blue-500' : ''
-                                    }`}
+                                className={`bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out cursor-pointer group 
+              ${!email.isRead ? 'border-l-4 border-blue-500 pl-2' : 'pl-3'}
+              hover:scale-[1.02] hover:-translate-y-1 hover:z-10 relative`}
                             >
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold truncate">{email.subject}</h2>
-                                    <span className="text-sm text-gray-500">{email.date}</span>
+                                <div className="flex items-center space-x-3">
+                                    <div className="flex-grow min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <h2 className="text-sm font-semibold truncate pr-2 group-hover:text-blue-600 transition-colors duration-300">
+                                                {email.subject}
+                                            </h2>
+                                            <span className="text-xs text-gray-400 flex-shrink-0 group-hover:text-gray-600 transition-colors duration-300">
+                                                {email.date}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 truncate group-hover:text-gray-800 transition-colors duration-300">
+                                            {email.sender}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate mt-0.5 group-hover:hidden transition-opacity duration-300">
+                                            {email.preview}
+                                        </p>
+                                        <p className="text-xs text-blue-500 mt-0.5 hidden group-hover:block transition-opacity duration-300">
+                                            Click to open
+                                        </p>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                    <span className="sr-only">Open actions menu</span>
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem onSelect={() => handleSummarize(email)}>
+                                                    <Sparkles className="mr-2 h-4 w-4" />
+                                                    <span>Summarize with AI</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleGenerateReply(email)}>
+                                                    <Reply className="mr-2 h-4 w-4" />
+                                                    <span>Generate AI Reply</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem>
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    <span>View Original</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-600 mt-1 truncate">{email.sender}</p>
-                                <p className="text-sm text-gray-500 mt-2 line-clamp-2">{email.preview}</p>
                             </div>
                         ))}
                     </div>
                 </ScrollArea>
+
+                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>{selectedEmail?.subject}</DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-4">
+                            {isLoading ? (
+                                <div className="flex items-center justify-center">
+                                    <svg className="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className="ml-2">Generating summary...</span>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-600">{summary}</p>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={isReplyModalOpen} onOpenChange={setIsReplyModalOpen}>
+                    <DialogContent className="sm:max-w-[525px]">
+                        <DialogHeader>
+                            <DialogTitle>{selectedEmail?.subject}</DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-4">
+                            {isReplyLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                                    <span className="ml-2">Generating AI Reply...</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <Textarea
+                                        value={aiReply}
+                                        onChange={handleReplyChange}
+                                        placeholder="Edit your reply here..."
+                                        className="min-h-[200px]"
+                                    />
+                                    <div className="flex justify-end space-x-2">
+                                        <Button variant="outline" onClick={() => {
+                                            // onOpenChange(false)
+                                        }}>
+                                            Cancel
+                                        </Button>
+                                        <Button onClick={() => { handleSendReply(aiReply) }}>
+                                            Send Reply
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     )
