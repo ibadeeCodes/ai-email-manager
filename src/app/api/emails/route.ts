@@ -38,9 +38,25 @@ export async function GET(req: NextRequest) {
         }).then((res: any) => {
           const headers = res.data.payload?.headers || [];
           const subjectHeader = headers.find((header: { name: string; value: string }) => header.name === 'Subject');
+
+          // Function to decode base64 encoded body
+          const decodeBody = (body: string) => Buffer.from(body, 'base64').toString('utf-8');
+
+          // Extract body
+          let body = '';
+          if (res.data.payload?.body?.data) {
+            body = decodeBody(res.data.payload.body.data);
+          } else if (res.data.payload?.parts) {
+            const textPart = res.data.payload.parts.find((part: any) => part.mimeType === 'text/plain');
+            if (textPart && textPart.body?.data) {
+              body = decodeBody(textPart.body.data);
+            }
+          }
+
           return {
             id,
             subject: subjectHeader?.value || 'No Subject',
+            body: body || 'No body content',
           };
         })
       );

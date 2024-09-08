@@ -17,6 +17,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import DOMPurify from 'dompurify';
 import { Textarea } from "@/components/ui/textarea"
 import DashboardLoading from '@/components/shared/DashboardLoading'
 import SideBar from '@/components/shared/SideBar'
@@ -36,7 +37,8 @@ interface Email {
     sender: string
     preview: string
     date: string
-    isRead: boolean
+    isRead: boolean,
+    body: string
 }
 
 export default function Dashboard() {
@@ -54,6 +56,8 @@ export default function Dashboard() {
     const [aiReply, setAiReply] = useState('');
     const [isReplyLoading, setIsReplyLoading] = useState(false);
 
+    const [isViewOriginalModalOpen, setIsViewOriginalModalOpen] = useState(false);
+    const [selectedOriginalEmail, setSelectedOriginalEmail] = useState<Email | null>(null);
 
     const [isSendLoading, setIsSendLoading] = useState(false);
 
@@ -165,6 +169,12 @@ export default function Dashboard() {
     }
 
 
+    const handleViewOriginal = (email: Email) => {
+        setSelectedOriginalEmail(email);
+        setIsViewOriginalModalOpen(true);
+    };
+
+
     useEffect(() => {
         async function loadEmails() {
             if (session?.accessToken) {
@@ -260,7 +270,7 @@ export default function Dashboard() {
                                             <Reply className="mr-2 h-4 w-4" />
                                             <span>Generate AI Reply</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => handleViewOriginal(email)}>
                                             <Eye className="mr-2 h-4 w-4" />
                                             <span>View Original</span>
                                         </DropdownMenuItem>
@@ -270,6 +280,24 @@ export default function Dashboard() {
                         ))}
                     </div>
                 </ScrollArea>
+
+                <Dialog open={isViewOriginalModalOpen} onOpenChange={setIsViewOriginalModalOpen}>
+    <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+            <DialogTitle>{selectedOriginalEmail?.subject}</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="flex-grow mt-4">
+            <div 
+                className="email-body"
+                dangerouslySetInnerHTML={{
+                    __html: selectedOriginalEmail?.body 
+                        ? DOMPurify.sanitize(selectedOriginalEmail.body)
+                        : ''
+                }}
+            />
+        </ScrollArea>
+    </DialogContent>
+</Dialog>
 
 
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
