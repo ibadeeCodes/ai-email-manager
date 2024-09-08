@@ -18,6 +18,13 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import DashboardLoading from '@/components/shared/DashboardLoading'
+import SideBar from '@/components/shared/SideBar'
+import dynamic from 'next/dynamic'
+import SuccessMessage from '@/components/shared/SuccessMessage'
+
+// Dynamically import react-confetti to avoid SSR issues
+const ReactConfetti = dynamic(() => import('react-confetti'), { ssr: false });
 
 interface CustomSession extends Session {
     accessToken?: string
@@ -50,16 +57,8 @@ export default function Dashboard() {
 
     const [isSendLoading, setIsSendLoading] = useState(false);
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
-
-    const sidebarItems = [
-        { icon: Inbox, label: 'Inbox' },
-        { icon: Send, label: 'Sent' },
-        { icon: Star, label: 'Starred' },
-        { icon: Trash, label: 'Trash' },
-    ]
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     const handleSummarize = async (email: Email) => {
         setSelectedEmail(email);
@@ -135,6 +134,10 @@ export default function Dashboard() {
                     }
                 );
                 setAiReply('');
+                setShowConfetti(true);
+                setShowSuccessMessage(true);
+                // Hide success message after 3 seconds
+                setTimeout(() => setShowSuccessMessage(false), 3000);
             }
         } catch (error) {
             console.error('Error sending reply:', error);
@@ -181,77 +184,21 @@ export default function Dashboard() {
         loadEmails()
     }, [session])
 
-    if (loading) return <div className="flex flex-col items-center justify-center h-screen bg-background">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg font-semibold text-primary">Loading...</p>
-    </div>
+    useEffect(() => {
+        if (showConfetti) {
+            const timer = setTimeout(() => setShowConfetti(false), 5000); // Stop confetti after 5 seconds
+            return () => clearTimeout(timer);
+        }
+    }, [showConfetti]);
+
+    if (loading) return <DashboardLoading />
 
     if (error) return <div className="flex items-center justify-center h-screen text-red-500">{error}</div>
 
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Sidebar */}
-            <div
-                className={cn(
-                    "bg-white shadow-md transition-all duration-300 ease-in-out",
-                    isSidebarOpen ? "w-64" : "w-16"
-                )}
-            >
-                <div className="p-4 flex justify-between items-center">
-                    <Button
-                        className={cn(
-                            "justify-start rounded-full",
-                            isSidebarOpen ? "w-full" : "w-8 h-8 p-0"
-                        )}
-                        variant="outline"
-                        onClick={toggleSidebar}
-                    >
-                        {isSidebarOpen ? (
-                            <>
-                                <Menu className="mr-2 h-4 w-4" />
-                                Menu
-                            </>
-                        ) : (
-                            <ChevronRight className="h-4 w-4" />
-                        )}
-                    </Button>
-                    {isSidebarOpen && (
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            className="lg:hidden"
-                            onClick={toggleSidebar}
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    )}
-                </div>
-                <nav className="mt-4 space-y-1 px-3">
-                    <TooltipProvider>
-                        {sidebarItems.map((item) => (
-                            <Tooltip key={item.label} delayDuration={300}>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        className={cn(
-                                            "w-full justify-start rounded-full hover:bg-gray-100",
-                                            !isSidebarOpen && "w-10 h-10 p-0"
-                                        )}
-                                    >
-                                        <item.icon className={cn("h-4 w-4", isSidebarOpen && "mr-2")} />
-                                        {isSidebarOpen && item.label}
-                                    </Button>
-                                </TooltipTrigger>
-                                {!isSidebarOpen && (
-                                    <TooltipContent side="right">
-                                        <p>{item.label}</p>
-                                    </TooltipContent>
-                                )}
-                            </Tooltip>
-                        ))}
-                    </TooltipProvider>
-                </nav>
-            </div>
+            <SideBar />
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -286,64 +233,44 @@ export default function Dashboard() {
                 </header>
 
                 {/* Email list */}
-                <ScrollArea className="flex-1 px-4">
-                    <div className="space-y-2 py-2">
-                        {emails.map((email) => (
+                <ScrollArea className="flex-1">
+                    <div className="divide-y divide-gray-200">
+                        {emails.map((email, index) => (
                             <div
                                 key={email.id}
-                                className={`bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out cursor-pointer group 
-              ${!email.isRead ? 'border-l-4 border-blue-500 pl-2' : 'pl-3'}
-              hover:scale-[1.02] hover:-translate-y-1 hover:z-10 relative`}
+                                className={`flex items-center justify-between py-3 px-4 ${index % 2 !== 0 ? 'bg-white' : 'bg-gray-50'
+                                    }`}
                             >
-                                <div className="flex items-center space-x-3">
-                                    <div className="flex-grow min-w-0">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <h2 className="text-sm font-semibold truncate pr-2 group-hover:text-blue-600 transition-colors duration-300">
-                                                {email.subject}
-                                            </h2>
-                                            <span className="text-xs text-gray-400 flex-shrink-0 group-hover:text-gray-600 transition-colors duration-300">
-                                                {email.date}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-gray-600 truncate group-hover:text-gray-800 transition-colors duration-300">
-                                            {email.sender}
-                                        </p>
-                                        <p className="text-xs text-gray-500 truncate mt-0.5 group-hover:hidden transition-opacity duration-300">
-                                            {email.preview}
-                                        </p>
-                                        <p className="text-xs text-blue-500 mt-0.5 hidden group-hover:block transition-opacity duration-300">
-                                            Click to open
-                                        </p>
-                                    </div>
-                                    <div className="flex-shrink-0">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                    <span className="sr-only">Open actions menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
-                                                <DropdownMenuItem onSelect={() => handleSummarize(email)}>
-                                                    <Sparkles className="mr-2 h-4 w-4" />
-                                                    <span>Summarize with AI</span>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => handleGenerateReply(email)}>
-                                                    <Reply className="mr-2 h-4 w-4" />
-                                                    <span>Generate AI Reply</span>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem>
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    <span>View Original</span>
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
+                                <h2 className="text-sm text-gray-900 truncate flex-grow">
+                                    {email.subject}
+                                </h2>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                            <MoreVertical className="h-5 w-5 text-gray-600" />
+                                            <span className="sr-only">Open actions menu</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuItem onSelect={() => handleSummarize(email)}>
+                                            <Sparkles className="mr-2 h-4 w-4" />
+                                            <span>Summarize with AI</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => handleGenerateReply(email)}>
+                                            <Reply className="mr-2 h-4 w-4" />
+                                            <span>Generate AI Reply</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            <span>View Original</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         ))}
                     </div>
                 </ScrollArea>
+
 
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                     <DialogContent className="sm:max-w-[425px]">
@@ -365,6 +292,13 @@ export default function Dashboard() {
                         </div>
                     </DialogContent>
                 </Dialog>
+
+                {showConfetti && <ReactConfetti />}
+                <SuccessMessage
+                    message="Email Sent Successfully"
+                    isVisible={showSuccessMessage}
+                    onClose={() => setShowSuccessMessage(false)}
+                />
 
                 <Dialog open={isReplyModalOpen} onOpenChange={setIsReplyModalOpen}>
                     <DialogContent className="sm:max-w-[525px]">
@@ -391,8 +325,17 @@ export default function Dashboard() {
                                         }}>
                                             Cancel
                                         </Button>
-                                        <Button onClick={() => { handleSendReply(aiReply) }}>
-                                            Send Reply
+                                        <Button onClick={() => { handleSendReply(aiReply) }}
+                                            disabled={isSendLoading}
+                                        >
+                                            {isSendLoading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Sending...
+                                                </>
+                                            ) : (
+                                                'Send Reply'
+                                            )}
                                         </Button>
                                     </div>
                                 </div>
